@@ -4,7 +4,7 @@ A Spring Boot backend that demonstrates offline UPI payments routed through a Bl
 This repo is the server side of that system, plus a software simulator of the mesh so you can demo the whole flow on a single laptop without any real Bluetooth hardware.
 
 # Table of Contents
-How to run it
+1.How to run it
 Prerequisites
 JDK 17 or newer installed and on PATH (or JAVA_HOME set). Check with java -version.
 That's it. No database, no Redis, no Maven (the wrapper handles it). Just Java.
