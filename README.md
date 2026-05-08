@@ -7,6 +7,7 @@ This repo is the server side of that system, plus a software simulator of the me
 1.How to run it
 # Prerequisites
 JDK 17 or newer installed and on PATH (or JAVA_HOME set). Check with java -version.
+
 That's it. No database, no Redis, no Maven (the wrapper handles it). Just Java.
 Run on Windows
 Open a terminal in the project folder and run:
