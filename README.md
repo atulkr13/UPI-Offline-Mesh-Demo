@@ -45,11 +45,12 @@ Choose sender, receiver, amount, PIN. Click "📤 Inject into Mesh".
 # What actually happens on the backend:
 
 - The server pretends to be the sender's phone.
-It builds a PaymentInstruction with a unique nonce and current timestamp.
-It encrypts that with the server's RSA public key (using hybrid encryption — see below).
-It wraps the ciphertext in a MeshPacket with a TTL of 5.
-It hands the packet to phone-alice, an offline virtual device.
-You'll see phone-alice now holds 1 packet.
+
+- It builds a PaymentInstruction with a unique nonce and current timestamp.
+- It encrypts that with the server's RSA public key (using hybrid encryption — see below).
+- It wraps the ciphertext in a MeshPacket with a TTL of 5.
+- It hands the packet to phone-alice, an offline virtual device.
+- You'll see phone-alice now holds 1 packet.
 
 Step 2 — Run gossip rounds
 Click "🔄 Run Gossip Round". Then click it again.
