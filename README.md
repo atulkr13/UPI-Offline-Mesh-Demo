@@ -50,9 +50,10 @@ Choose sender, receiver, amount, PIN. Click "📤 Inject into Mesh".
 - It encrypts that with the server's RSA public key (using hybrid encryption — see below).
 - It wraps the ciphertext in a MeshPacket with a TTL of 5.
 - It hands the packet to phone-alice, an offline virtual device.
+
  You'll see phone-alice now holds 1 packet.
 
-Step 2 — Run gossip rounds
+# Step 2 — Run gossip rounds
 Click "🔄 Run Gossip Round". Then click it again.
 
 Each round, every device that holds a packet broadcasts it to every other device within "Bluetooth range" (which, in our simulator, means everyone). TTL decrements per hop.
@@ -61,34 +62,39 @@ After 1 round: every device holds the packet. After 2 rounds: still every device
 
 In the real system this would happen organically as people walk past each other in the basement.
 
-Step 3 — Bridge node walks outside
+# Step 3 — Bridge node walks outside
+
 Click "📡 Bridges Upload to Backend".
 
 phone-bridge is the only device with hasInternet=true. The dashboard simulates that phone walking outside and getting 4G. It POSTs every packet it holds to /api/bridge/ingest.
 
 The backend pipeline runs:
 
-Hash the ciphertext (SHA-256).
-Try to claim the hash in the idempotency cache.
-If claimed: decrypt with the server's RSA private key.
-Verify freshness (signedAt within 24 hours).
-Run the debit/credit in a single DB transaction.
+1. Hash the ciphertext (SHA-256).
+2. Try to claim the hash in the idempotency cache.
+3. If claimed: decrypt with the server's RSA private key.
+4. Verify freshness (signedAt within 24 hours).
+5. Run the debit/credit in a single DB transaction.
+
 Watch the Account Balances table — money has moved. Watch the Transaction Ledger — a new row appears.
 
-Step 4 — Demonstrate idempotency (the killer feature)
+# Step 4 — Demonstrate idempotency (the killer feature)
+
 Reset the mesh. Inject a single packet. Run gossip 2 times. Now all 5 devices hold the same packet, including multiple bridges in a more complex setup.
 
 To really see idempotency in action, modify MeshSimulatorService.java to seed multiple bridge devices, or just:
 
-Click "Inject" once.
-Click "Gossip" twice.
-Click "Flush Bridges" — only phone-bridge is a bridge in the default seed, so just one upload happens.
+1. Click "Inject" once.
+2. Click "Gossip" twice.
+3. Click "Flush Bridges" — only phone-bridge is a bridge in the default seed, so just one upload happens.
+
 To exercise the concurrent duplicate case properly, run the test:
 
 mvnw.cmd test -Dtest=IdempotencyConcurrencyTest#singlePacketDeliveredByThreeBridgesSettlesExactlyOnce
+
 This test creates one packet, fires 3 threads at BridgeIngestionService.ingest() simultaneously, and verifies that exactly one settles, two are dropped as duplicates, and the sender is debited exactly once.
 
-Architecture
+# Architecture
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                         SENDER PHONE (offline)                          │
 │  PaymentInstruction { sender, receiver, amount, pinHash, nonce, time }  │
@@ -127,55 +133,67 @@ Architecture
 │       @Transactional: debit sender, credit receiver, write ledger       │
 │       @Version on Account = optimistic locking (defense in depth)       │
 └─────────────────────────────────────────────────────────────────────────┘
-The three hard problems and how they're solved
-Problem 1: Untrusted intermediates
+# The three hard problems and how they're solved
+
+# Problem 1: Untrusted intermediates
+
 A random stranger's phone is carrying your transaction. How do you stop them from reading the amount or changing it?
 
-Solution: Hybrid encryption (RSA-OAEP + AES-GCM).
+# Solution: Hybrid encryption (RSA-OAEP + AES-GCM).
 
 The sender encrypts the payload with the server's public key. Only the server holds the private key, so intermediates see opaque ciphertext.
 
 But RSA can only encrypt small data (~245 bytes for a 2048-bit key), and our payload is JSON that could exceed that. So we use the standard hybrid pattern:
 
-Generate a fresh AES-256 key for this packet.
-Encrypt the JSON with AES-256-GCM (fast + authenticated).
-Encrypt just the AES key with RSA-OAEP.
-Concatenate: [256 bytes RSA-encrypted AES key][12 bytes IV][AES ciphertext + 16-byte GCM tag].
-Why GCM specifically? It's authenticated encryption. If an intermediate flips one bit anywhere in the ciphertext, decryption throws an exception — the GCM tag won't verify. The server cannot be tricked into processing tampered data.
+1.Generate a fresh AES-256 key for this packet.
+2.Encrypt the JSON with AES-256-GCM (fast + authenticated).
+3.Encrypt just the AES key with RSA-OAEP.
+4.Concatenate: [256 bytes RSA-encrypted AES key][12 bytes IV][AES ciphertext + 16-byte GCM tag].
+
+# Why GCM specifically? 
+
+It's authenticated encryption. If an intermediate flips one bit anywhere in the ciphertext, decryption throws an exception — the GCM tag won't verify. The server cannot be tricked into processing tampered data.
 
 This is the same scheme TLS uses. See HybridCryptoService.java.
 
-Problem 2: The duplicate-storm
+# Problem 2: The duplicate-storm
+
 Three bridge nodes hold the same packet. They all walk outside at the same instant. They all POST to /api/bridge/ingest within milliseconds of each other. If you naively process all three, the sender is debited ₹1500 instead of ₹500.
 
-Solution: Atomic compare-and-set on the ciphertext hash.
+# Solution: Atomic compare-and-set on the ciphertext hash.
 
 The very first thing the server does on receiving a packet is compute SHA-256(ciphertext) and try to "claim" that hash:
 
 // IdempotencyService.java
 Instant prev = seen.putIfAbsent(packetHash, now);
 return prev == null;  // true = first claimer, false = duplicate
+
 ConcurrentHashMap.putIfAbsent is atomic. Even if 100 threads call it at the exact same nanosecond, exactly one returns null (the first claimer) and the rest return the existing entry. Only the first claimer proceeds to decrypt and settle. The rest are short-circuited as DUPLICATE_DROPPED.
 
-Why hash the ciphertext, not the packetId or the cleartext?
+# Why hash the ciphertext, not the packetId or the cleartext?
 
-packetId can be rewritten by a malicious intermediate. Two copies of the same payment could have different packetIds. Bad key.
-The cleartext requires decryption first. We want to dedupe before spending CPU on RSA.
-The ciphertext is authenticated by GCM, so any tampering is detectable on decrypt. Two legitimate deliveries of the same payment have byte-identical ciphertexts (AES is deterministic for a given key+IV+plaintext, and the same packet means the same key+IV+plaintext).
+- packetId can be rewritten by a malicious intermediate. Two copies of the same payment could have different packetIds. Bad key.
+- The cleartext requires decryption first. We want to dedupe before spending CPU on RSA.
+- The ciphertext is authenticated by GCM, so any tampering is detectable on decrypt. Two legitimate deliveries of the same payment have byte-identical ciphertexts (AES is deterministic for a given key+IV+plaintext, and the same packet means the same key+IV+plaintext).
+
 In production this ConcurrentHashMap becomes Redis: SET key NX EX 86400. Same semantics, distributed across replicas.
 
 There's also a defense-in-depth fallback: transactions.packet_hash has a unique index. If the cache layer ever fails and two settlements somehow try to write the same hash, the database rejects the second one.
 
-Problem 3: Replay attacks
+# Problem 3: Replay attacks
+
 An attacker who captured a ciphertext weeks ago could replay it whenever convenient.
 
-Solution: Two layers.
+# Solution: Two layers.
 
-Inside the encrypted payload, the sender includes signedAt (epoch millis). The server rejects any packet older than 24 hours. The attacker can't change signedAt without breaking the GCM tag.
-Inside the encrypted payload, the sender includes a nonce (UUID). Even if Alice legitimately sends Bob ₹100 twice, the nonces differ → ciphertexts differ → hashes differ → both settle. But a replay of one specific signed packet is byte-identical, so the idempotency cache catches it.
+1.Inside the encrypted payload, the sender includes signedAt (epoch millis). The server rejects any packet older than 24 hours. The attacker can't change signedAt without breaking the GCM tag.
+
+2.Inside the encrypted payload, the sender includes a nonce (UUID). Even if Alice legitimately sends Bob ₹100 twice, the nonces differ → ciphertexts differ → hashes differ → both settle. But a replay of one specific signed packet is byte-identical, so the idempotency cache catches it.
+
 See BridgeIngestionService.java for the freshness check.
 
-File-by-file walkthrough
+# File-by-file walkthrough
+
 upi-offline-mesh/
 ├── pom.xml                                  Maven build, Spring Boot 3.3, Java 17
 ├── mvnw, mvnw.cmd                           Maven wrapper (no install needed)
@@ -216,7 +234,8 @@ upi-offline-mesh/
 
 src/test/java/com/demo/upimesh/
 └── IdempotencyConcurrencyTest.java          The 3-bridges-at-once test + tamper test
-API reference
+# API reference
+
 Method	Path	What it does
 GET	/	Dashboard HTML
 GET	/api/server-key	Server's RSA public key (base64)
@@ -229,23 +248,34 @@ POST	/api/mesh/flush	Bridges with internet upload to backend (parallel)
 POST	/api/mesh/reset	Clear mesh + idempotency cache
 POST	/api/bridge/ingest	The production endpoint. Real bridges POST here
 GET	/h2-console	Browse the in-memory database
+
 H2 console login: JDBC URL jdbc:h2:mem:upimesh, username sa, no password.
 
-Request format for /api/bridge/ingest
+# Request format for /api/bridge/ingest
+
 POST /api/bridge/ingest
+
 Content-Type: application/json
+
 X-Bridge-Node-Id: phone-bridge-42
+
 X-Hop-Count: 3
 
 {
+
   "packetId": "550e8400-e29b-41d4-a716-446655440000",
+  
   "ttl": 2,
+  
   "createdAt": 1730000000000,
+  
   "ciphertext": "base64-encoded-RSA-and-AES-blob"
 }
+
 Response:
 
 {
+
   "outcome": "SETTLED",                     // or "DUPLICATE_DROPPED" or "INVALID"
   "packetHash": "a3f8c9...",
   "reason": null,                            // populated on INVALID
