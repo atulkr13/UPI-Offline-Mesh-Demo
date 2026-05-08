@@ -20,28 +20,31 @@ The first run downloads Maven (~10 MB) and all dependencies (~80 MB) — give it
 # Run on Mac/Linux
 ./mvnw spring-boot:run
 # Open the dashboard
-Once you see Started UpiMeshApplication in X.XXX seconds, open:
+Once you see Started UpiMeshApplication in _.___ seconds, open:
 
 http://localhost:8080
 
 You'll get a dark dashboard with everything you need to drive the demo.
 
-Stop the server
+# Stop the server
 Ctrl+C in the terminal.
 
-Run the tests
+# Run the tests
+
 mvnw.cmd test
+
 The interesting one is IdempotencyConcurrencyTest — it fires three threads delivering the same packet simultaneously and asserts that exactly one settles.
 
-The demo flow (step by step)
+# The demo flow (step by step)
+
 The dashboard has four buttons that walk through the full pipeline. The intended sequence:
 
-Step 1 — Compose a payment
+# Step 1 — Compose a payment
 Choose sender, receiver, amount, PIN. Click "📤 Inject into Mesh".
 
-What actually happens on the backend:
+# What actually happens on the backend:
 
-The server pretends to be the sender's phone.
+- The server pretends to be the sender's phone.
 It builds a PaymentInstruction with a unique nonce and current timestamp.
 It encrypts that with the server's RSA public key (using hybrid encryption — see below).
 It wraps the ciphertext in a MeshPacket with a TTL of 5.
