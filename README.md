@@ -3,7 +3,7 @@ A Spring Boot backend that demonstrates offline UPI payments routed through a Bl
 
 This repo is the server side of that system, plus a software simulator of the mesh so you can demo the whole flow on a single laptop without any real Bluetooth hardware.
 
-Table of Contents
+# Table of Contents
 What this demo proves
 How to run it
 The demo flow (step by step)
