@@ -14,11 +14,12 @@ That's it. No database, no Redis, no Maven (the wrapper handles it). Just Java.
 Open a terminal in the project folder and run:
 
 mvnw.cmd spring-boot:run
+
 The first run downloads Maven (~10 MB) and all dependencies (~80 MB) — give it a couple of minutes. Subsequent runs start in a few seconds.
 
-Run on Mac/Linux
+# Run on Mac/Linux
 ./mvnw spring-boot:run
-Open the dashboard
+# Open the dashboard
 Once you see Started UpiMeshApplication in X.XXX seconds, open:
 
 http://localhost:8080
