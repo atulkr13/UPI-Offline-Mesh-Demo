@@ -4,24 +4,6 @@ A Spring Boot backend that demonstrates offline UPI payments routed through a Bl
 This repo is the server side of that system, plus a software simulator of the mesh so you can demo the whole flow on a single laptop without any real Bluetooth hardware.
 
 # Table of Contents
-What this demo proves
-How to run it
-The demo flow (step by step)
-Architecture
-The three hard problems and how they're solved
-File-by-file walkthrough
-API reference
-Tests
-What's NOT real (and what would change for production)
-Honest limitations of the concept
-What this demo proves
-The system shows three things working end to end:
-
-A payment can travel from sender to backend through untrusted intermediaries without any of them being able to read or tamper with it. (Hybrid RSA + AES-GCM encryption.)
-Even if the same payment reaches the backend simultaneously through multiple bridge nodes, it settles exactly once. (Idempotency via atomic compare-and-set on the ciphertext hash.)
-A tampered or replayed packet is rejected before it touches the ledger.
-You'll see all three in the dashboard.
-
 How to run it
 Prerequisites
 JDK 17 or newer installed and on PATH (or JAVA_HOME set). Check with java -version.
