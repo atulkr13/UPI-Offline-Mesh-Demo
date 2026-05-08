@@ -96,10 +96,14 @@ This test creates one packet, fires 3 threads at BridgeIngestionService.ingest()
 
 # Architecture
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         SENDER PHONE (offline)                          │
-│  PaymentInstruction { sender, receiver, amount, pinHash, nonce, time }  │
-│              │                                                          │
-│              ▼ encrypt with server's RSA public key                     │
+│                         SENDER PHONE (offline)                          |
+│                                                                         |
+│  PaymentInstruction { sender, receiver, amount, pinHash, nonce, time }  |
+│                                                                         |
+│              │                                                          |
+│                                                                         |
+│              ▼ encrypt with server's RSA public key                     |
+│                                                                         |
 │   MeshPacket { packetId, ttl, createdAt, ciphertext }                   │
 └──────────────────────────────────────┬──────────────────────────────────┘
                                        │ Bluetooth gossip
@@ -112,7 +116,8 @@ This test creates one packet, fires 3 threads at BridgeIngestionService.ingest()
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                     SPRING BOOT BACKEND (this project)                  │
 │                                                                         │
-│  /api/bridge/ingest                                                     │
+│  /api/bridge/ingest                                                     |
+│
 │       │                                                                 │
 │       ▼                                                                 │
 │  [1] hash ciphertext (SHA-256)                                          │
