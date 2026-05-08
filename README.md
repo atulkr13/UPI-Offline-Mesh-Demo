@@ -319,7 +319,7 @@ X-Hop-Count: 3
   "ciphertext": "base64-encoded-RSA-and-AES-blob"
 }
 
-Response:
+# Response:
 
 {
 
@@ -328,28 +328,42 @@ Response:
   "reason": null,                            // populated on INVALID
   "transactionId": 42                        // populated on SETTLED
 }
-Tests
+
+# Tests
 Run all tests:
 
 mvnw.cmd test
 The three included tests:
 
-encryptDecryptRoundTrip — sanity-check that hybrid encryption is symmetric.
-tamperedCiphertextIsRejected — flip a byte in the ciphertext, verify that BridgeIngestionService returns INVALID instead of crashing or settling.
-singlePacketDeliveredByThreeBridgesSettlesExactlyOnce — the headline test. Three threads, one packet, simultaneous delivery. Asserts exactly one SETTLED, two DUPLICATE_DROPPED, and that the sender's balance changed by exactly the amount once.
-What's NOT real (and what would change for production)
+- encryptDecryptRoundTrip — sanity-check that hybrid encryption is symmetric.
+- tamperedCiphertextIsRejected — flip a byte in the ciphertext, verify that BridgeIngestionService returns INVALID instead of crashing or settling.
+
+- singlePacketDeliveredByThreeBridgesSettlesExactlyOnce — the headline test. Three threads, one packet, simultaneous delivery. Asserts exactly one SETTLED, two DUPLICATE_DROPPED, and that the sender's balance changed by exactly the amount once.
+
+# What's NOT real (and what would change for production)
+
 This is a teaching demo. To make it production-grade you'd swap these things:
 
 What's in the demo	What it would be in production
+
 H2 in-memory DB	PostgreSQL / MySQL with replicas
+
 ConcurrentHashMap for idempotency	Redis with SET NX EX
+
 RSA keypair regenerated on every startup	Private key in HSM (AWS KMS, HashiCorp Vault). Public key cached on devices.
+
 Server-side DemoService.createPacket()	Same code running on Android, in a Kotlin port
+
 Software-simulated mesh (MeshSimulatorService)	Real BLE GATT or Wi-Fi Direct between phones
+
 One settlement service that owns the ledger	Integration with NPCI / a real bank core
+
 No auth on /api/bridge/ingest	Mutual TLS or signed bridge-node certificates
+
 In-memory accounts seeded on startup	Real KYC'd users, real VPAs, real PIN verification against the bank
+
 H2 console exposed	Disabled
+
 No rate limiting	Per-bridge-node rate limit, per-sender velocity check
 Logs to console	Structured logs to a SIEM, alerts on INVALID spikes
 The cryptography and idempotency code is essentially production-shaped. The infrastructure around it is what changes.
