@@ -50,7 +50,7 @@ Choose sender, receiver, amount, PIN. Click "📤 Inject into Mesh".
 - It encrypts that with the server's RSA public key (using hybrid encryption — see below).
 - It wraps the ciphertext in a MeshPacket with a TTL of 5.
 - It hands the packet to phone-alice, an offline virtual device.
-- You'll see phone-alice now holds 1 packet.
+ You'll see phone-alice now holds 1 packet.
 
 Step 2 — Run gossip rounds
 Click "🔄 Run Gossip Round". Then click it again.
